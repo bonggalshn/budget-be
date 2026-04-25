@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	authapi "github.com/bonggalshn/budget-be/api/v1/auth"
 	"github.com/bonggalshn/budget-be/internal/auth"
 	"github.com/bonggalshn/budget-be/internal/config"
@@ -37,11 +39,14 @@ func main() {
 	authHandler := auth.NewHandler(authService, *cfg)
 	authMiddleware := auth.NewMiddleware(authService, *cfg)
 
-	mux := http.NewServeMux()
+	mux := chi.NewMux()
 	mux.HandleFunc("/health", healthCheck)
+	mux.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("test ok"))
+	})
 
 	authHandlerAPI := authapi.Routes(authHandler, authMiddleware)
-	mux.Handle("/api/v1/auth/", authHandlerAPI)
+	mux.Mount("/api/v1/auth", authHandlerAPI)
 
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
