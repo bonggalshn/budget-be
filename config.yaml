@@ -1,0 +1,19 @@
+database:
+  host: localhost
+  port: "5432"
+  name: budget
+  user: budget_user
+  password: ""
+
+jwt:
+  secret: change-me-in-production
+  expiry: 24h
+
+server:
+  host: 0.0.0.0
+  port: "8080"
+
+rateLimit:
+  ipRequestsPerMinute: 10
+  usernameRequestsPerMinute: 5
+  windowMinutes: 15

@@ -3,64 +3,90 @@ package config
 import (
 	"os"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all application configuration settings.
 type Config struct {
-	DB        DBConfig
-	JWT       JWTConfig
-	Server    ServerConfig
-	RateLimit RateLimitConfig
+	DB        DBConfig        `yaml:"database"`
+	JWT       JWTConfig       `yaml:"jwt"`
+	Server    ServerConfig    `yaml:"server"`
+	RateLimit RateLimitConfig `yaml:"rateLimit"`
 }
 
 // DBConfig holds database connection settings.
 // Supported environment variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 type DBConfig struct {
-	Host     string
-	Port     string
-	Name     string
-	User     string
-	Password string
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	Name     string `yaml:"name"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
 }
 
 // JWTConfig holds JWT authentication settings.
 // Supported environment variables: JWT_SECRET, JWT_EXPIRY
 type JWTConfig struct {
-	Secret string        // Secret key for signing JWT tokens
-	Expiry time.Duration // Token expiration duration
+	Secret string        `yaml:"secret"` // Secret key for signing JWT tokens
+	Expiry time.Duration `yaml:"expiry"` // Token expiration duration
 }
 
 // ServerConfig holds HTTP server settings.
 // Supported environment variables: SERVER_HOST, SERVER_PORT
 type ServerConfig struct {
-	Host string // Server listen address
-	Port string // Server listen port
+	Host string `yaml:"host"` // Server listen address
+	Port string `yaml:"port"` // Server listen port
 }
 
 // RateLimitConfig holds rate limiting settings.
 type RateLimitConfig struct {
-	IPRequestsPerMinute    int // Maximum requests per IP per minute
-	UsernameRequestsPerMin int // Maximum requests per username per window
-	WindowMinutes          int // Rate limiting window in minutes
+	IPRequestsPerMinute    int `yaml:"ipRequestsPerMinute"` // Maximum requests per IP per minute
+	UsernameRequestsPerMin int `yaml:"usernameRequestsPerMinute"` // Maximum requests per username per window
+	WindowMinutes          int `yaml:"windowMinutes"` // Rate limiting window in minutes
 }
 
-// Load returns a Config populated from environment variables with sensible defaults.
+// Load returns a Config populated from config file and environment variables.
+// Config file is loaded first, then environment variables override config values.
 func Load() *Config {
+	cfg := LoadFromFile("config.yaml")
+	overrideFromEnv(cfg)
+	return cfg
+}
+
+// LoadFromFile loads configuration from a YAML file.
+// Returns default config if file doesn't exist.
+func LoadFromFile(path string) *Config {
+	cfg := defaultConfig()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cfg
+	}
+
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return cfg
+	}
+
+	return cfg
+}
+
+func defaultConfig() *Config {
 	return &Config{
 		DB: DBConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			Name:     getEnv("DB_NAME", "budget"),
-			User:     getEnv("DB_USER", "budget_user"),
-			Password: getEnv("DB_PASSWORD", ""),
+			Host:     "localhost",
+			Port:     "5432",
+			Name:     "budget",
+			User:     "budget_user",
+			Password: "",
 		},
 		JWT: JWTConfig{
-			Secret: getEnv("JWT_SECRET", "change-me-in-production"),
-			Expiry: parseDuration(getEnv("JWT_EXPIRY", "24h"), 24*time.Hour),
+			Secret: "change-me-in-production",
+			Expiry: 24 * time.Hour,
 		},
 		Server: ServerConfig{
-			Host: getEnv("SERVER_HOST", "0.0.0.0"),
-			Port: getEnv("SERVER_PORT", "8080"),
+			Host: "0.0.0.0",
+			Port: "8080",
 		},
 		RateLimit: RateLimitConfig{
 			IPRequestsPerMinute:    10,
@@ -70,11 +96,34 @@ func Load() *Config {
 	}
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func overrideFromEnv(cfg *Config) {
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.DB.Host = v
 	}
-	return defaultValue
+	if v := os.Getenv("DB_PORT"); v != "" {
+		cfg.DB.Port = v
+	}
+	if v := os.Getenv("DB_NAME"); v != "" {
+		cfg.DB.Name = v
+	}
+	if v := os.Getenv("DB_USER"); v != "" {
+		cfg.DB.User = v
+	}
+	if v := os.Getenv("DB_PASSWORD"); v != "" {
+		cfg.DB.Password = v
+	}
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		cfg.JWT.Secret = v
+	}
+	if v := os.Getenv("JWT_EXPIRY"); v != "" {
+		cfg.JWT.Expiry = parseDuration(v, 24*time.Hour)
+	}
+	if v := os.Getenv("SERVER_HOST"); v != "" {
+		cfg.Server.Host = v
+	}
+	if v := os.Getenv("SERVER_PORT"); v != "" {
+		cfg.Server.Port = v
+	}
 }
 
 func parseDuration(value string, defaultDuration time.Duration) time.Duration {
