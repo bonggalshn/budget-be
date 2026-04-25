@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/bonggalshn/budget-be/internal/config"
@@ -75,6 +76,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Register(r.Context(), req.Username, req.Email, req.Password)
 	if err != nil {
+		log.Printf("Register error: %v", err)
 		if errors.Is(err, ErrEmailAlreadyExists) {
 			h.writeError(w, "duplicate_email", "Email already registered", http.StatusConflict)
 			return

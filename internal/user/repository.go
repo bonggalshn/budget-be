@@ -49,10 +49,10 @@ func NewRepository(pool *db.Pool) Repository {
 
 func (r *repository) Create(ctx context.Context, u *User) error {
 	query := `
-		INSERT INTO users (id, username, email, password_hash, email_verified, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err := r.db.Exec(ctx, query, u.ID, u.Username, u.Email, u.PasswordHash, u.EmailVerified, u.CreatedAt, u.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, u.ID, u.Username, u.Email, u.PasswordHash, u.CreatedAt, u.UpdatedAt)
 	return err
 }
 
@@ -96,7 +96,7 @@ func (r *repository) FindByToken(ctx context.Context, token string) (*Verificati
 }
 
 func (r *repository) FindByUsername(ctx context.Context, username string) (*User, error) {
-	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, email_verified, created_at, updated_at, deleted_at FROM users WHERE username = $1 AND deleted_at IS NULL", username)
+	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, created_at, updated_at, deleted_at FROM users WHERE username = $1 AND deleted_at IS NULL", username)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (r *repository) FindByUsername(ctx context.Context, username string) (*User
 }
 
 func (r *repository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, email_verified, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS NULL", email)
+	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS NULL", email)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*User, erro
 }
 
 func (r *repository) FindByID(ctx context.Context, id string) (*User, error) {
-	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, email_verified, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL", id)
+	u, err := r.findUser(ctx, "SELECT id, username, email, password_hash, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL", id)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,6 @@ func (r *repository) findUser(ctx context.Context, query string, args ...interfa
 		&u.Username,
 		&u.Email,
 		&u.PasswordHash,
-		&u.EmailVerified,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 		&u.DeletedAt,

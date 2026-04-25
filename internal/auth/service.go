@@ -231,19 +231,18 @@ func (s *Service) Register(ctx context.Context, username, email, password string
 		return nil, err
 	}
 
+	now := time.Now()
 	u := &user.User{
 		ID:            uuid.New(),
 		Username:      username,
 		Email:         email,
 		PasswordHash:  string(hash),
 		EmailVerified: false,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	if err := s.UserRepo.Create(ctx, u); err != nil {
-		return nil, err
-	}
-
-	if _, err := s.CreateVerificationToken(ctx, u.ID); err != nil {
 		return nil, err
 	}
 
