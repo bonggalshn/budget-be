@@ -39,8 +39,8 @@ database:
   host: localhost
   port: "5432"
   name: budget
-  user: budget_user
-  password: ""
+  user: postgres
+  password: "sa"
 
 jwt:
   secret: change-me-in-production
