@@ -39,6 +39,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, "invalid_credentials", "Invalid username/email or password", http.StatusUnauthorized)
 			return
 		}
+		if errors.Is(err, ErrAccountLocked) {
+			h.writeError(w, "account_locked", "Account temporarily locked. Try again in 15 minutes.", http.StatusTooManyRequests)
+			return
+		}
 		h.writeError(w, "service_unavailable", "Service temporarily unavailable. Please try again.", http.StatusServiceUnavailable)
 		return
 	}

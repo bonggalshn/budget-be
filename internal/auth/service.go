@@ -51,6 +51,7 @@ type SessionRepository interface {
 type LoginAttemptRepository interface {
 	Create(ctx context.Context, a *loginattempt.LoginAttempt) error
 	CountRecent(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
+	CountRecentByIP(ctx context.Context, ipAddress string, since time.Time) (int, error)
 }
 
 type LoginRequest struct {
@@ -99,6 +100,12 @@ func (s *Service) Authenticate(ctx context.Context, identifier, password, ipAddr
 	}
 	if err != nil {
 		return nil, ErrInvalidCredentials
+	}
+
+	lockoutWindow := time.Now().Add(-15 * time.Minute)
+	failedAttempts, _ := s.attemptRepo.CountRecent(ctx, u.ID, lockoutWindow)
+	if failedAttempts >= 5 {
+		return nil, ErrAccountLocked
 	}
 
 	if err := s.comparePassword(u.PasswordHash, password); err != nil {

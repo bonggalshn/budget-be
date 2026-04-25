@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, a *LoginAttempt) error
 	CountRecent(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
+	CountRecentByIP(ctx context.Context, ipAddress string, since time.Time) (int, error)
 }
 
 type repository struct {
@@ -38,6 +39,15 @@ func (r *repository) CountRecent(ctx context.Context, userID uuid.UUID, since ti
 	err := r.db.QueryRow(ctx,
 		`SELECT COUNT(*) FROM login_attempts WHERE user_id = $1 AND success = false AND attempted_at > $2`,
 		userID, since,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *repository) CountRecentByIP(ctx context.Context, ipAddress string, since time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM login_attempts WHERE ip_address = $1 AND success = false AND attempted_at > $2`,
+		ipAddress, since,
 	).Scan(&count)
 	return count, err
 }
