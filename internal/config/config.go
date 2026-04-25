@@ -33,7 +33,7 @@ type ServerConfig struct {
 type RateLimitConfig struct {
 	IPRequestsPerMinute    int
 	UsernameRequestsPerMin int
-	WindowMinutes         int
+	WindowMinutes          int
 }
 
 func Load() *Config {
@@ -56,7 +56,7 @@ func Load() *Config {
 		RateLimit: RateLimitConfig{
 			IPRequestsPerMinute:    10,
 			UsernameRequestsPerMin: 5,
-			WindowMinutes:         15,
+			WindowMinutes:          15,
 		},
 	}
 }

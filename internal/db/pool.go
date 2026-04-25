@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/bonggalshn/budget-be/internal/config"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Pool struct {

@@ -20,18 +20,18 @@ var (
 	ErrInvalidCredentials = errors.New("invalid username/email or password")
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrSessionExpired     = errors.New("session expired. please log in again")
-	ErrAccountLocked     = errors.New("account temporarily locked. try again in 15 minutes")
-	ErrNotFound          = errors.New("user not found")
+	ErrAccountLocked      = errors.New("account temporarily locked. try again in 15 minutes")
+	ErrNotFound           = errors.New("user not found")
 )
 
 type Config struct {
-	Secret          string
-	Expiry          time.Duration
+	Secret string
+	Expiry time.Duration
 }
 
 type Service struct {
 	cfg         config.Config
-	UserRepo   user.Repository
+	UserRepo    user.Repository
 	sessionRepo session.Repository
 	attemptRepo loginattempt.Repository
 }
@@ -46,6 +46,7 @@ type SessionRepository interface {
 	Create(ctx context.Context, s *session.Session) error
 	FindByTokenHash(ctx context.Context, tokenHash string) (*session.Session, error)
 	Invalidate(ctx context.Context, id string) error
+	UpdateLastActivity(ctx context.Context, id string) error
 }
 
 type LoginAttemptRepository interface {
@@ -56,7 +57,7 @@ type LoginAttemptRepository interface {
 
 type LoginRequest struct {
 	Identifier string `json:"identifier"`
-	Password  string `json:"password"`
+	Password   string `json:"password"`
 }
 
 type LoginResponse struct {
@@ -67,8 +68,8 @@ type LoginResponse struct {
 
 type UserInfo struct {
 	ID        string    `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -80,7 +81,7 @@ type Claims struct {
 func NewService(cfg config.Config, userRepo user.Repository, sessionRepo session.Repository, attemptRepo loginattempt.Repository) *Service {
 	return &Service{
 		cfg:         cfg,
-		UserRepo:   userRepo,
+		UserRepo:    userRepo,
 		sessionRepo: sessionRepo,
 		attemptRepo: attemptRepo,
 	}
@@ -125,7 +126,7 @@ func (s *Service) Authenticate(ctx context.Context, identifier, password, ipAddr
 			ID:        u.ID.String(),
 			Username:  u.Username,
 			Email:     u.Email,
-			CreatedAt:  u.CreatedAt,
+			CreatedAt: u.CreatedAt,
 		},
 	}, nil
 }
@@ -137,7 +138,7 @@ func (s *Service) GenerateToken(ctx context.Context, userID string) (string, tim
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt: jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
@@ -206,11 +207,11 @@ func (s *Service) comparePassword(hash, password string) error {
 
 func (s *Service) recordFailedAttempt(ctx context.Context, userID uuid.UUID, identifier, ipAddress string) {
 	attempt := &loginattempt.LoginAttempt{
-		UserID:           userID,
+		UserID:             userID,
 		IdentifierProvided: identifier,
-		IPAddress:        ipAddress,
-		Success:         false,
-		FailureReason:   strp("invalid_credentials"),
+		IPAddress:          ipAddress,
+		Success:            false,
+		FailureReason:      strp("invalid_credentials"),
 	}
 	s.attemptRepo.Create(ctx, attempt)
 }
@@ -222,4 +223,51 @@ func hashToken(token string) string {
 
 func strp(s string) *string {
 	return &s
+}
+
+type TestUser struct {
+	ID           uuid.UUID
+	Username     string
+	Email        string
+	PasswordHash string
+	CreatedAt    time.Time
+	UpdatedAt   time.Time
+	DeletedAt    *time.Time
+}
+
+type TestSession struct {
+	ID             uuid.UUID
+	UserID         uuid.UUID
+	TokenHash      string
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	InvalidatedAt  *time.Time
+	LastActivityAt time.Time
+}
+
+type TestAttempt struct {
+	ID                uuid.UUID
+	UserID            uuid.UUID
+	IdentifierProvided string
+	IPAddress         string
+	Success           bool
+	AttemptedAt       time.Time
+	FailureReason     *string
+}
+
+func NewServiceWithMocks(cfg config.Config, userRepo UserRepository, sessionRepo SessionRepository, attemptRepo LoginAttemptRepository) *Service {
+	return &Service{
+		cfg:         cfg,
+		UserRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		attemptRepo: attemptRepo,
+	}
+}
+
+func (s *Service) TestAuthenticate(ctx context.Context, identifier, password, ipAddress string) (*LoginResponse, error) {
+	return s.Authenticate(ctx, identifier, password, ipAddress)
+}
+
+func ValidatePassword(password string) bool {
+	return len(password) >= 8 && len(password) <= 72
 }

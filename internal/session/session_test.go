@@ -1,16 +1,15 @@
-package tests
+package session
 
 import (
 	"testing"
 	"time"
 
-	"github.com/bonggalshn/budget-be/internal/session"
 	"github.com/google/uuid"
 )
 
 func TestSession_IsActive(t *testing.T) {
 	t.Run("returns true when session is not invalidated and not expired", func(t *testing.T) {
-		s := &session.Session{
+		s := &Session{
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 
@@ -20,7 +19,7 @@ func TestSession_IsActive(t *testing.T) {
 	})
 
 	t.Run("returns false when session is expired", func(t *testing.T) {
-		s := &session.Session{
+		s := &Session{
 			ExpiresAt: time.Now().Add(-1 * time.Hour),
 		}
 
@@ -31,7 +30,7 @@ func TestSession_IsActive(t *testing.T) {
 
 	t.Run("returns false when session is invalidated", func(t *testing.T) {
 		now := time.Now()
-		s := &session.Session{
+		s := &Session{
 			ExpiresAt:     time.Now().Add(24 * time.Hour),
 			InvalidatedAt: &now,
 		}
@@ -44,7 +43,7 @@ func TestSession_IsActive(t *testing.T) {
 
 func TestSession_IsExpired(t *testing.T) {
 	t.Run("returns true when current time is past expires_at", func(t *testing.T) {
-		s := &session.Session{
+		s := &Session{
 			ExpiresAt: time.Now().Add(-1 * time.Hour),
 		}
 
@@ -54,7 +53,7 @@ func TestSession_IsExpired(t *testing.T) {
 	})
 
 	t.Run("returns false when current time is before expires_at", func(t *testing.T) {
-		s := &session.Session{
+		s := &Session{
 			ExpiresAt: time.Now().Add(1 * time.Hour),
 		}
 
@@ -66,7 +65,7 @@ func TestSession_IsExpired(t *testing.T) {
 
 func TestSession_Model(t *testing.T) {
 	t.Run("creates session with ID", func(t *testing.T) {
-		s := &session.Session{
+		s := &Session{
 			ID:         uuid.New(),
 			UserID:     uuid.New(),
 			TokenHash:  "abc123",

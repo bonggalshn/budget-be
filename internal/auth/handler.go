@@ -94,12 +94,12 @@ func (h *Handler) writeError(w http.ResponseWriter, code, message string, status
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(authError{
 		ErrorCode: code,
-		Message: message,
+		Message:   message,
 	})
 }
 
 type authError struct {
 	ErrorCode string `json:"error_code"`
-	Message  string `json:"message"`
-	Details  any    `json:"details,omitempty"`
+	Message   string `json:"message"`
+	Details   any    `json:"details,omitempty"`
 }

@@ -1,18 +1,22 @@
-package tests
+package user
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/bonggalshn/budget-be/internal/user"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 func TestUserRepository_FindByUsername(t *testing.T) {
+	ctx := context.Background()
+	
+	_ = ctx
+
 	t.Run("returns user when username exists", func(t *testing.T) {
-		testUser := &user.User{
+		testUser := &User{
 			ID:           uuid.New(),
 			Username:     "testuser",
 			Email:        "test@example.com",
@@ -30,8 +34,8 @@ func TestUserRepository_FindByUsername(t *testing.T) {
 	})
 
 	t.Run("returns ErrUserNotFound when username does not exist", func(t *testing.T) {
-		err := user.ErrUserNotFound
-		if !errors.Is(err, user.ErrUserNotFound) {
+		err := ErrUserNotFound
+		if !errors.Is(err, ErrUserNotFound) {
 			t.Errorf("expected ErrUserNotFound, got %v", err)
 		}
 		_ = pgx.ErrNoRows
@@ -41,7 +45,7 @@ func TestUserRepository_FindByUsername(t *testing.T) {
 
 func TestUserRepository_FindByEmail(t *testing.T) {
 	t.Run("returns user when email exists", func(t *testing.T) {
-		testUser := &user.User{
+		testUser := &User{
 			ID:           uuid.New(),
 			Username:     "testuser",
 			Email:        "test@example.com",
@@ -56,24 +60,23 @@ func TestUserRepository_FindByEmail(t *testing.T) {
 	})
 }
 
-func TestUser_Model(t *testing.T) {
-	t.Run("creates user with ID", func(t *testing.T) {
-		u := &user.User{
+func TestUser_IsDeleted(t *testing.T) {
+	t.Run("returns false when deleted_at is nil", func(t *testing.T) {
+		u := &User{
 			ID:        uuid.New(),
 			Username:  "alice",
 			Email:     "alice@example.com",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			DeletedAt: nil,
 		}
 
-		if u.ID == uuid.Nil {
-			t.Error("expected user ID to be set")
+		if u.IsDeleted() {
+			t.Error("expected IsDeleted to return false")
 		}
 	})
 
-	t.Run("IsDeleted returns true when deleted_at is set", func(t *testing.T) {
+	t.Run("returns true when deleted_at is set", func(t *testing.T) {
 		now := time.Now()
-		u := &user.User{
+		u := &User{
 			ID:        uuid.New(),
 			Username:  "alice",
 			Email:     "alice@example.com",

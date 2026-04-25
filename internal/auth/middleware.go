@@ -50,12 +50,12 @@ func (m *Middleware) writeError(w http.ResponseWriter, code, message string, sta
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(middlewareError{
 		ErrorCode: code,
-		Message: message,
+		Message:   message,
 	})
 }
 
 type middlewareError struct {
 	ErrorCode string `json:"error_code"`
-	Message  string `json:"message"`
-	Details  any    `json:"details,omitempty"`
+	Message   string `json:"message"`
+	Details   any    `json:"details,omitempty"`
 }
