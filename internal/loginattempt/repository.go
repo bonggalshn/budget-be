@@ -8,9 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// Repository defines the interface for login attempt tracking.
 type Repository interface {
+	// Create records a new login attempt.
 	Create(ctx context.Context, a *LoginAttempt) error
+	// CountRecent returns the number of failed login attempts for a user since the given time.
 	CountRecent(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
+	// CountRecentByIP returns the number of failed login attempts from an IP since the given time.
 	CountRecentByIP(ctx context.Context, ipAddress string, since time.Time) (int, error)
 }
 

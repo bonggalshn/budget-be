@@ -10,12 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ErrSessionNotFound is returned when a session is not found in the database.
 var ErrSessionNotFound = errors.New("session not found")
 
+// Repository defines the interface for session data access operations.
 type Repository interface {
+	// Create inserts a new session into the database.
 	Create(ctx context.Context, s *Session) error
+	// FindByTokenHash retrieves a session by its token hash.
+	// Returns ErrSessionNotFound if no session exists with the given hash.
 	FindByTokenHash(ctx context.Context, tokenHash string) (*Session, error)
+	// Invalidate marks a session as invalid (logged out).
 	Invalidate(ctx context.Context, id string) error
+	// UpdateLastActivity updates the last activity timestamp for a session.
 	UpdateLastActivity(ctx context.Context, id string) error
 }
 

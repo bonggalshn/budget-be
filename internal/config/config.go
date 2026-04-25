@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Config holds all application configuration settings.
 type Config struct {
 	DB        DBConfig
 	JWT       JWTConfig
@@ -12,6 +13,8 @@ type Config struct {
 	RateLimit RateLimitConfig
 }
 
+// DBConfig holds database connection settings.
+// Supported environment variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 type DBConfig struct {
 	Host     string
 	Port     string
@@ -20,22 +23,28 @@ type DBConfig struct {
 	Password string
 }
 
+// JWTConfig holds JWT authentication settings.
+// Supported environment variables: JWT_SECRET, JWT_EXPIRY
 type JWTConfig struct {
-	Secret string
-	Expiry time.Duration
+	Secret string        // Secret key for signing JWT tokens
+	Expiry time.Duration // Token expiration duration
 }
 
+// ServerConfig holds HTTP server settings.
+// Supported environment variables: SERVER_HOST, SERVER_PORT
 type ServerConfig struct {
-	Host string
-	Port string
+	Host string // Server listen address
+	Port string // Server listen port
 }
 
+// RateLimitConfig holds rate limiting settings.
 type RateLimitConfig struct {
-	IPRequestsPerMinute    int
-	UsernameRequestsPerMin int
-	WindowMinutes          int
+	IPRequestsPerMinute    int // Maximum requests per IP per minute
+	UsernameRequestsPerMin int // Maximum requests per username per window
+	WindowMinutes          int // Rate limiting window in minutes
 }
 
+// Load returns a Config populated from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
 		DB: DBConfig{

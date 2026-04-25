@@ -8,11 +8,13 @@ import (
 	"github.com/bonggalshn/budget-be/internal/config"
 )
 
+// Handler handles HTTP requests for authentication endpoints.
 type Handler struct {
 	service *Service
 	config  config.Config
 }
 
+// NewHandler creates a new authentication handler with the given service and configuration.
 func NewHandler(service *Service, cfg config.Config) *Handler {
 	return &Handler{
 		service: service,
@@ -20,6 +22,8 @@ func NewHandler(service *Service, cfg config.Config) *Handler {
 	}
 }
 
+// Login handles POST /api/v1/auth/login requests.
+// Validates credentials and returns a JWT token on success.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -16,19 +16,33 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Error definitions for authentication failures.
 var (
+	// ErrInvalidCredentials is returned when login credentials are invalid.
 	ErrInvalidCredentials = errors.New("invalid username/email or password")
-	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrSessionExpired     = errors.New("session expired. please log in again")
-	ErrAccountLocked      = errors.New("account temporarily locked. try again in 15 minutes")
-	ErrNotFound           = errors.New("user not found")
+
+	// ErrInvalidToken is returned when a JWT token is invalid or malformed.
+	ErrInvalidToken = errors.New("invalid or expired token")
+
+	// ErrSessionExpired is returned when a session has exceeded its expiry time.
+	ErrSessionExpired = errors.New("session expired. please log in again")
+
+	// ErrAccountLocked is returned when an account has been locked due to too many failed attempts.
+	ErrAccountLocked = errors.New("account temporarily locked. try again in 15 minutes")
+
+// ErrNotFound is returned when a user is not found.
+	ErrNotFound = errors.New("user not found")
 )
 
+// Config holds authentication service configuration settings.
 type Config struct {
+	// Secret is the JWT signing key.
 	Secret string
+	// Expiry is the token expiration duration.
 	Expiry time.Duration
 }
 
+// Service handles user authentication and session management.
 type Service struct {
 	cfg         config.Config
 	UserRepo    user.Repository
@@ -36,12 +50,14 @@ type Service struct {
 	attemptRepo loginattempt.Repository
 }
 
+// UserRepository defines the interface for user data access.
 type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*user.User, error)
 	FindByEmail(ctx context.Context, email string) (*user.User, error)
 	FindByID(ctx context.Context, id string) (*user.User, error)
 }
 
+// SessionRepository defines the interface for session data access.
 type SessionRepository interface {
 	Create(ctx context.Context, s *session.Session) error
 	FindByTokenHash(ctx context.Context, tokenHash string) (*session.Session, error)
@@ -49,30 +65,35 @@ type SessionRepository interface {
 	UpdateLastActivity(ctx context.Context, id string) error
 }
 
+// LoginAttemptRepository defines the interface for login attempt tracking.
 type LoginAttemptRepository interface {
 	Create(ctx context.Context, a *loginattempt.LoginAttempt) error
 	CountRecent(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
 	CountRecentByIP(ctx context.Context, ipAddress string, since time.Time) (int, error)
 }
 
+// LoginRequest represents a login API request payload.
 type LoginRequest struct {
-	Identifier string `json:"identifier"`
-	Password   string `json:"password"`
+	Identifier string `json:"identifier"` // Username or email address
+	Password   string `json:"password"`     // User's password
 }
 
+// LoginResponse represents a successful login API response.
 type LoginResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	User      UserInfo  `json:"user"`
+	Token     string    `json:"token"`      // JWT authentication token
+	ExpiresAt time.Time `json:"expires_at"` // Token expiration timestamp
+	User      UserInfo  `json:"user"`       // Authenticated user details
 }
 
+// UserInfo represents user information exposed in API responses.
 type UserInfo struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string    `json:"id"`        // User's unique identifier
+	Username  string    `json:"username"`  // Username
+	Email     string    `json:"email"`     // Email address
+	CreatedAt time.Time `json:"created_at"` // Account creation timestamp
 }
 
+// Claims represents JWT token claims for authenticated users.
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims

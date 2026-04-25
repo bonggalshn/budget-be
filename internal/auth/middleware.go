@@ -9,11 +9,13 @@ import (
 	"github.com/bonggalshn/budget-be/internal/config"
 )
 
+// Middleware provides JWT authentication for protected endpoints.
 type Middleware struct {
 	service *Service
 	config  config.Config
 }
 
+// NewMiddleware creates a new authentication middleware.
 func NewMiddleware(service *Service, cfg config.Config) *Middleware {
 	return &Middleware{
 		service: service,
@@ -21,6 +23,8 @@ func NewMiddleware(service *Service, cfg config.Config) *Middleware {
 	}
 }
 
+// Authenticate returns a middleware that validates JWT Bearer tokens.
+// Adds userID to request context on successful authentication.
 func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := getToken(r)

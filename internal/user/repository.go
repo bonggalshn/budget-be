@@ -8,11 +8,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ErrUserNotFound is returned when a user is not found in the database.
 var ErrUserNotFound = errors.New("user not found")
 
+// Repository defines the interface for user data access operations.
 type Repository interface {
+	// FindByUsername retrieves a user by their username.
+	// Returns ErrUserNotFound if no user exists with the given username.
 	FindByUsername(ctx context.Context, username string) (*User, error)
+
+	// FindByEmail retrieves a user by their email address.
+	// Returns ErrUserNotFound if no user exists with the given email.
 	FindByEmail(ctx context.Context, email string) (*User, error)
+
+	// FindByID retrieves a user by their unique identifier.
+	// Returns ErrUserNotFound if no user exists with the given ID.
 	FindByID(ctx context.Context, id string) (*User, error)
 }
 
