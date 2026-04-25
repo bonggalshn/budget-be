@@ -48,10 +48,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, "account_locked", "Account temporarily locked. Try again in 15 minutes.", http.StatusTooManyRequests)
 			return
 		}
-		if errors.Is(err, ErrEmailNotVerified) {
-			h.writeError(w, "email_not_verified", "Please verify your email before logging in", http.StatusForbidden)
-			return
-		}
 		h.writeError(w, "service_unavailable", "Service temporarily unavailable. Please try again.", http.StatusServiceUnavailable)
 		return
 	}

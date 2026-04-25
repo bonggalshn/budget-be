@@ -170,10 +170,6 @@ func (s *Service) Authenticate(ctx context.Context, identifier, password, ipAddr
 		return nil, ErrInvalidCredentials
 	}
 
-	if !u.EmailVerified {
-		return nil, ErrEmailNotVerified
-	}
-
 	lockoutWindow := time.Now().Add(-15 * time.Minute)
 	failedAttempts, _ := s.attemptRepo.CountRecent(ctx, u.ID, lockoutWindow)
 	if failedAttempts >= 5 {
@@ -243,6 +239,10 @@ func (s *Service) Register(ctx context.Context, username, email, password string
 	}
 
 	if err := s.UserRepo.Create(ctx, u); err != nil {
+		return nil, err
+	}
+
+	if _, err := s.CreateVerificationToken(ctx, u.ID); err != nil {
 		return nil, err
 	}
 
