@@ -16,6 +16,8 @@ func Routes(handler *auth.Handler, middleware *auth.Middleware) http.Handler {
 		r.Use(httprate.LimitByIP(10, time.Minute))
 
 		r.Post("/login", handler.Login)
+		r.Post("/register", handler.Register)
+		r.Post("/verify", handler.Verify)
 	})
 
 	r.Group(func(r chi.Router) {

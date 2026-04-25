@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -30,8 +31,26 @@ var (
 	// ErrAccountLocked is returned when an account has been locked due to too many failed attempts.
 	ErrAccountLocked = errors.New("account temporarily locked. try again in 15 minutes")
 
-// ErrNotFound is returned when a user is not found.
+	// ErrNotFound is returned when a user is not found.
 	ErrNotFound = errors.New("user not found")
+
+	// ErrEmailAlreadyExists is returned when email is already registered.
+	ErrEmailAlreadyExists = errors.New("email already registered")
+
+	// ErrUsernameTaken is returned when username is already taken.
+	ErrUsernameTaken = errors.New("username already taken")
+
+	// ErrInvalidEmail is returned when email format is invalid.
+	ErrInvalidEmail = errors.New("invalid email format")
+
+	// ErrWeakPassword is returned when password does not meet requirements.
+	ErrWeakPassword = errors.New("password must be at least 8 characters with at least one number")
+
+	// ErrInvalidVerificationToken is returned when verification token is invalid or expired.
+	ErrInvalidVerificationToken = errors.New("invalid or expired verification token")
+
+	// ErrEmailNotVerified is returned when user tries to login without verifying email.
+	ErrEmailNotVerified = errors.New("email not verified")
 )
 
 // Config holds authentication service configuration settings.
@@ -52,9 +71,13 @@ type Service struct {
 
 // UserRepository defines the interface for user data access.
 type UserRepository interface {
+	Create(ctx context.Context, u *user.User) error
+	CreateVerificationToken(ctx context.Context, vt *user.VerificationToken) error
 	FindByUsername(ctx context.Context, username string) (*user.User, error)
 	FindByEmail(ctx context.Context, email string) (*user.User, error)
 	FindByID(ctx context.Context, id string) (*user.User, error)
+	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
+	FindByToken(ctx context.Context, token string) (*user.VerificationToken, *user.User, error)
 }
 
 // SessionRepository defines the interface for session data access.
@@ -75,7 +98,30 @@ type LoginAttemptRepository interface {
 // LoginRequest represents a login API request payload.
 type LoginRequest struct {
 	Identifier string `json:"identifier"` // Username or email address
-	Password   string `json:"password"`     // User's password
+	Password   string `json:"password"`   // User's password
+}
+
+// RegisterRequest represents a user registration API request payload.
+type RegisterRequest struct {
+	Username string `json:"username"` // Desired username
+	Email    string `json:"email"`    // Email address
+	Password string `json:"password"` // User's password
+}
+
+// VerifyRequest represents an email verification API request payload.
+type VerifyRequest struct {
+	Token string `json:"token"` // Verification token from email
+}
+
+// VerifyResponse represents a successful email verification API response.
+type VerifyResponse struct {
+	Message string `json:"message"` // Success message
+}
+
+// RegisterResponse represents a successful registration API response.
+type RegisterResponse struct {
+	Message string `json:"message"` // Success message
+	UserID  string `json:"user_id"` // Created user ID
 }
 
 // LoginResponse represents a successful login API response.
@@ -87,9 +133,9 @@ type LoginResponse struct {
 
 // UserInfo represents user information exposed in API responses.
 type UserInfo struct {
-	ID        string    `json:"id"`        // User's unique identifier
-	Username  string    `json:"username"`  // Username
-	Email     string    `json:"email"`     // Email address
+	ID        string    `json:"id"`         // User's unique identifier
+	Username  string    `json:"username"`   // Username
+	Email     string    `json:"email"`      // Email address
 	CreatedAt time.Time `json:"created_at"` // Account creation timestamp
 }
 
@@ -124,6 +170,10 @@ func (s *Service) Authenticate(ctx context.Context, identifier, password, ipAddr
 		return nil, ErrInvalidCredentials
 	}
 
+	if !u.EmailVerified {
+		return nil, ErrEmailNotVerified
+	}
+
 	lockoutWindow := time.Now().Add(-15 * time.Minute)
 	failedAttempts, _ := s.attemptRepo.CountRecent(ctx, u.ID, lockoutWindow)
 	if failedAttempts >= 5 {
@@ -150,6 +200,150 @@ func (s *Service) Authenticate(ctx context.Context, identifier, password, ipAddr
 			CreatedAt: u.CreatedAt,
 		},
 	}, nil
+}
+
+func (s *Service) Register(ctx context.Context, username, email, password string) (*RegisterResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := validateEmail(email); err != nil {
+		return nil, ErrInvalidEmail
+	}
+
+	if err := validatePassword(password); err != nil {
+		return nil, ErrWeakPassword
+	}
+
+	if _, err := s.UserRepo.FindByEmail(ctx, email); err == nil {
+		return nil, ErrEmailAlreadyExists
+	} else if !errors.Is(err, user.ErrUserNotFound) {
+		return nil, err
+	}
+
+	if _, err := s.UserRepo.FindByUsername(ctx, username); err == nil {
+		return nil, ErrUsernameTaken
+	} else if !errors.Is(err, user.ErrUserNotFound) {
+		return nil, err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	u := &user.User{
+		ID:            uuid.New(),
+		Username:      username,
+		Email:         email,
+		PasswordHash:  string(hash),
+		EmailVerified: false,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	if err := s.UserRepo.Create(ctx, u); err != nil {
+		return nil, err
+	}
+
+	return &RegisterResponse{
+		Message: "Registration successful. Please verify your email.",
+		UserID:  u.ID.String(),
+	}, nil
+}
+
+func validateEmail(email string) error {
+	if email == "" {
+		return errors.New("email required")
+	}
+	if len(email) < 3 || len(email) > 254 {
+		return errors.New("email length invalid")
+	}
+	atIndex := -1
+	for i, c := range email {
+		if c == '@' {
+			atIndex = i
+			break
+		}
+	}
+	if atIndex < 1 || atIndex == len(email)-1 {
+		return errors.New("invalid email format")
+	}
+	domain := email[atIndex+1:]
+	dotIndex := -1
+	for i, c := range domain {
+		if c == '.' {
+			dotIndex = i
+			break
+		}
+	}
+	if dotIndex < 1 || dotIndex == len(domain)-1 {
+		return errors.New("invalid email format")
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < 8 {
+		return errors.New("password too short")
+	}
+	hasNumber := false
+	for _, c := range password {
+		if c >= '0' && c <= '9' {
+			hasNumber = true
+			break
+		}
+	}
+	if !hasNumber {
+		return errors.New("password must contain at least one number")
+	}
+	return nil
+}
+
+func generateVerificationToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func (s *Service) CreateVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	token, err := generateVerificationToken()
+	if err != nil {
+		return "", err
+	}
+
+	vt := &user.VerificationToken{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.UserRepo.CreateVerificationToken(ctx, vt); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *Service) VerifyEmail(ctx context.Context, tokenStr string) error {
+	vt, u, err := s.UserRepo.FindByToken(ctx, tokenStr)
+	if err != nil {
+		return ErrInvalidVerificationToken
+	}
+
+	if vt.IsExpired() {
+		return ErrInvalidVerificationToken
+	}
+
+	if err := s.UserRepo.MarkEmailVerified(ctx, u.ID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) GenerateToken(ctx context.Context, userID string) (string, time.Time, error) {
@@ -252,7 +446,7 @@ type TestUser struct {
 	Email        string
 	PasswordHash string
 	CreatedAt    time.Time
-	UpdatedAt   time.Time
+	UpdatedAt    time.Time
 	DeletedAt    *time.Time
 }
 
@@ -267,13 +461,13 @@ type TestSession struct {
 }
 
 type TestAttempt struct {
-	ID                uuid.UUID
-	UserID            uuid.UUID
+	ID                 uuid.UUID
+	UserID             uuid.UUID
 	IdentifierProvided string
-	IPAddress         string
-	Success           bool
-	AttemptedAt       time.Time
-	FailureReason     *string
+	IPAddress          string
+	Success            bool
+	AttemptedAt        time.Time
+	FailureReason      *string
 }
 
 func NewServiceWithMocks(cfg config.Config, userRepo UserRepository, sessionRepo SessionRepository, attemptRepo LoginAttemptRepository) *Service {
