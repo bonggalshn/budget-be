@@ -47,12 +47,86 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, "account_locked", "Account temporarily locked. Try again in 15 minutes.", http.StatusTooManyRequests)
 			return
 		}
+		if errors.Is(err, ErrEmailNotVerified) {
+			h.writeError(w, "email_not_verified", "Please verify your email before logging in", http.StatusForbidden)
+			return
+		}
 		h.writeError(w, "service_unavailable", "Service temporarily unavailable. Please try again.", http.StatusServiceUnavailable)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// Register handles POST /api/v1/auth/register requests.
+// Creates a new user account.
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, "invalid_request", "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		h.writeError(w, "invalid_request", "Missing required field: username, email, or password", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := h.service.Register(r.Context(), req.Username, req.Email, req.Password)
+	if err != nil {
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			h.writeError(w, "duplicate_email", "Email already registered", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, ErrUsernameTaken) {
+			h.writeError(w, "username_taken", "Username already taken", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, ErrInvalidEmail) {
+			h.writeError(w, "invalid_email", "Invalid email format", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, ErrWeakPassword) {
+			h.writeError(w, "weak_password", "Password must be at least 8 characters with at least one number", http.StatusBadRequest)
+			return
+		}
+		h.writeError(w, "service_unavailable", "Service temporarily unavailable. Please try again.", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// Verify handles POST /api/v1/auth/verify requests.
+// Verifies a user's email address.
+func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
+	var req VerifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, "invalid_request", "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Token == "" {
+		h.writeError(w, "invalid_request", "Missing required field: token", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.VerifyEmail(r.Context(), req.Token); err != nil {
+		if errors.Is(err, ErrInvalidVerificationToken) {
+			h.writeError(w, "invalid_token", "Verification token invalid or expired", http.StatusBadRequest)
+			return
+		}
+		h.writeError(w, "service_unavailable", "Service temporarily unavailable. Please try again.", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(VerifyResponse{
+		Message: "Email verified successfully",
+	})
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
